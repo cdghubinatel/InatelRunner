@@ -4,17 +4,16 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.IO; // Adicione esta linha
 
 public partial class HeadTracker : Node
 {
 	private InferenceSession session;
 	private CameraTexture cameraTexture;
 	private CameraFeed feed;
-	
-	// --- NOVO: Referência para a UI ---
+
 	[Export]
 	public TextureRect CameraPreview; 
-	// ----------------------------------
 
 	public float NosePositionX { get; private set; } = 0.5f;
 
@@ -23,14 +22,29 @@ public partial class HeadTracker : Node
 	
 	private int frameCounter = 0;
 	private const int ProcessEveryNFrames = 2; 
-
+	
+	public float ArmCenterPositionX { get; private set; } = 0.5f;
+	public bool ShouldJump { get; private set; } = false;
+	
 	public override void _Ready()
 	{
+		string modelName = "yolo11n-pose.onnx";
+		string resPath = "res://" + modelName;
+		string userPath = OS.GetUserDataDir() + "/" + modelName;
+		if (!System.IO.File.Exists(userPath))
+		{
+			using var file = Godot.FileAccess.Open(resPath, Godot.FileAccess.ModeFlags.Read);
+			if (file != null)
+			{
+				byte[] buffer = file.GetBuffer((long)file.GetLength());
+				System.IO.File.WriteAllBytes(userPath, buffer);
+				GD.Print("Modelo IA copiado para a pasta do usuário.");
+			}
+		}
 		// 1. Carregar IA
 		try 
 		{
-			string modelPath = ProjectSettings.GlobalizePath("res://yolo11n-pose.onnx");
-			session = new InferenceSession(modelPath);
+			session = new InferenceSession(userPath);
 			GD.Print("Modelo IA Carregado!");
 		}
 		catch (Exception e)
@@ -43,7 +57,6 @@ public partial class HeadTracker : Node
 		{
 			feed = CameraServer.GetFeed(0);
 			
-			// Correção Linux: Definir formato antes de ativar
 			var formats = feed.GetFormats();
 			if (formats.Count > 0)
 			{
@@ -58,12 +71,10 @@ public partial class HeadTracker : Node
 			cameraTexture = new CameraTexture();
 			cameraTexture.CameraFeedId = feed.GetId();
 
-			// --- NOVO: Ligar a textura à UI ---
 			if (CameraPreview != null)
 			{
 				CameraPreview.Texture = cameraTexture;
 			}
-			// ----------------------------------
 		}
 		else
 		{
@@ -95,10 +106,12 @@ public partial class HeadTracker : Node
 			using (var results = session.Run(inputs))
 			{
 				var output = results.First().AsTensor<float>();
-				NosePositionX = ExtractNoseX(output);
+				ProcessBodyPose(output);
 			}
 		}
-		catch (Exception e) { }
+		catch (Exception e) { 
+			GD.Print("Erro na inferência: " + e.Message);
+		}
 	}
 
 	// (Funções auxiliares mantêm-se iguais)
@@ -131,7 +144,7 @@ public partial class HeadTracker : Node
 		return tensor;
 	}
 
-	private float ExtractNoseX(Tensor<float> output)
+	private void ProcessBodyPose(Tensor<float> output)
 	{
 		int anchors = output.Dimensions[2]; 
 		float maxScore = 0f;
@@ -139,7 +152,7 @@ public partial class HeadTracker : Node
 
 		for (int i = 0; i < anchors; i++)
 		{
-			float score = output[0, 4, i]; 
+			float score = output[0, 4, i]; // Score de confiança da pessoa
 			if (score > maxScore)
 			{
 				maxScore = score;
@@ -147,15 +160,28 @@ public partial class HeadTracker : Node
 			}
 		}
 
-		if (bestAnchorIndex != -1 && maxScore > 0.4f)
+		if (bestAnchorIndex != -1 && maxScore > 0.5f)
 		{
-			float noseX = output[0, 5, bestAnchorIndex];
-			float normalizedX = noseX / ModelInputWidth;
-			return 1.0f - Math.Clamp(normalizedX, 0f, 1f);
-		}
+			// 1. MOVIMENTO LATERAL (Média dos pulsos ou ombros)
+			// Keypoints no YOLO Pose começam no índice 5 (x,y,conf)
+			// Pulso Esquerdo: 9, Pulso Direito: 10
+			float wristLX = output[0, 5 + (9 * 3), bestAnchorIndex];
+			float wristRX = output[0, 5 + (10 * 3), bestAnchorIndex];
+			float avgWristX = (wristLX + wristRX) / 2.0f;
 
-		return NosePositionX; 
-	}
+			float normalizedX = avgWristX / ModelInputWidth;
+			ArmCenterPositionX = 1.0f - Math.Clamp(normalizedX, 0f, 1f);
+
+			// 2. LÓGICA DO PULO (Braços acima da cabeça/ombros)
+			// Se a posição Y do pulso (ponto 9/10) for menor que a do ombro (ponto 5/6)
+			// Nota: No 2D do computador, Y=0 é o topo. Então pulso < ombro significa braço levantado.
+			float shoulderLY = output[0, 5 + (5 * 3) + 1, bestAnchorIndex];
+			float wristLY = output[0, 5 + (9 * 3) + 1, bestAnchorIndex];
+
+			// Se o pulso estiver consideravelmente acima do ombro
+			ShouldJump = wristLY < (shoulderLY - 30); 
+		}
+}
 
 	public override void _ExitTree()
 	{

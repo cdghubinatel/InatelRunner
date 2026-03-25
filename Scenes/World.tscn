@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://bkryk1hhel8ta"]
 
-[ext_resource type="Script" path="res://Scripts/World.gd" id="1_n5c5u"]
+[ext_resource type="Script" uid="uid://j63feuq3bbtk" path="res://Scripts/World.gd" id="1_n5c5u"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_llfpy"]
 

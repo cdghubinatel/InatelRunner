@@ -1,0 +1,5 @@
+[gd_scene load_steps=2 format=3 uid="uid://caq8ycdefcqn4"]
+
+[ext_resource type="PackedScene" uid="uid://ek30bdex6epq" path="res://Assets/Environment/Houses/building_G.fbx" id="1_sw03a"]
+
+[node name="building_G" instance=ExtResource("1_sw03a")]

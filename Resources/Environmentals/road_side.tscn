@@ -1,0 +1,13 @@
+[gd_scene load_steps=4 format=3 uid="uid://em7xx13cu4b2"]
+
+[ext_resource type="PackedScene" uid="uid://dfwme5ja5yswx" path="res://Assets/Platforms/road-side.fbx" id="1_0dxe2"]
+[ext_resource type="Texture2D" uid="uid://b5ty37c4snpf2" path="res://Assets/Obstacles/Renzo_0.png" id="2_0arxi"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xrhm7"]
+albedo_texture = ExtResource("2_0arxi")
+
+[node name="road-side" instance=ExtResource("1_0dxe2")]
+transform = Transform3D(-4.371139e-07, 0, 10, 0, 10, 0, -10, 0, -4.371139e-07, 0, 0, 0)
+
+[node name="road-side" parent="." index="0"]
+surface_material_override/0 = SubResource("StandardMaterial3D_xrhm7")

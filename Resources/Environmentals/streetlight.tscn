@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bk88a7rmg1nqg"]
+
+[ext_resource type="PackedScene" uid="uid://b32xtgcpmfosc" path="res://Assets/Obstacles/streetlight.fbx" id="1_rh4q3"]
+
+[node name="streetlight" instance=ExtResource("1_rh4q3")]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)

@@ -10,8 +10,8 @@ config_version=5
 
 [application]
 
-config/name="Dock&Roll"
-run/main_scene="res://Scenes/Main.tscn"
+config/name="InatelRunner"
+run/main_scene="uid://dqqa1al6rptii"
 config/features=PackedStringArray("4.5", "C#", "Forward Plus")
 
 [autoload]

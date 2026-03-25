@@ -1,0 +1,115 @@
+[gd_scene load_steps=5 format=3 uid="uid://dqqa1al6rptii"]
+
+[ext_resource type="Script" uid="uid://crr03vbtsrngf" path="res://Scenes/main_menu.gd" id="1_8saeu"]
+[ext_resource type="Texture2D" uid="uid://dvb7o2r0vvngh" path="res://Assets/Inatel.png" id="2_ghw46"]
+[ext_resource type="PackedScene" uid="uid://cypv4o0nyjd80" path="res://Scenes/PlayerMenu.tscn" id="3_8saeu"]
+[ext_resource type="AudioStream" uid="uid://c8menbmpoydct" path="res://Assets/Music/menu_music.mp3" id="4_ghw46"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_8saeu")
+metadata/_edit_use_anchors_ = true
+
+[node name="TextureRect" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = -0.25260416
+anchor_top = -0.12345679
+anchor_right = 1.3883349
+anchor_bottom = 1.013889
+offset_bottom = -6.1035156e-05
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.9, 0.9)
+mouse_filter = 2
+texture = ExtResource("2_ghw46")
+expand_mode = 3
+stretch_mode = 3
+metadata/_edit_use_anchors_ = true
+
+[node name="SubViewportContainer" type="SubViewportContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 682.0
+offset_top = 546.0
+offset_right = 682.0
+offset_bottom = 546.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.8, 0.8)
+mouse_filter = 2
+
+[node name="SubViewport" type="SubViewport" parent="SubViewportContainer"]
+transparent_bg = true
+handle_input_locally = false
+render_target_update_mode = 4
+
+[node name="Camera3D" type="Camera3D" parent="SubViewportContainer/SubViewport"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.036563396, 0, 1.7730196)
+
+[node name="PlayerMenu" parent="SubViewportContainer/SubViewport" instance=ExtResource("3_8saeu")]
+script = null
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="SubViewportContainer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.195243)
+
+[node name="PanelContainer" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -175.0
+offset_top = -122.0
+offset_right = 549.0
+offset_bottom = 235.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.5, 0.5)
+
+[node name="Label" type="Label" parent="PanelContainer"]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 30
+text = "Corra para o Inatel para não chegar atrasado"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="Button" type="Button" parent="PanelContainer"]
+custom_minimum_size = Vector2(300, 80)
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_font_sizes/font_size = 50
+text = "Iniciar Jogo"
+
+[node name="InatelRunner" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -392.0
+offset_top = 20.0
+offset_right = 397.0
+offset_bottom = 185.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 120
+text = "Inatel Runner"
+horizontal_alignment = 1
+
+[node name="Sounds" type="Node3D" parent="."]
+
+[node name="MenuMusic" type="AudioStreamPlayer" parent="Sounds"]
+stream = ExtResource("4_ghw46")
+autoplay = true
+
+[connection signal="pressed" from="PanelContainer/Button" to="." method="_on_button_pressed"]

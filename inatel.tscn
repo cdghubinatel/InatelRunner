@@ -1,0 +1,15 @@
+[gd_scene load_steps=4 format=3 uid="uid://d3nae1kcl1yw"]
+
+[ext_resource type="PackedScene" uid="uid://dqeapetljaof4" path="res://Assets/Inatel.glb" id="1_321sx"]
+[ext_resource type="Script" uid="uid://cx8pt22u1wbha" path="res://inatel.gd" id="2_321sx"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_of87a"]
+
+[node name="Inatel" instance=ExtResource("1_321sx")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+script = ExtResource("2_321sx")
+
+[node name="Area3D" type="Area3D" parent="." index="1"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D" index="0"]
+shape = SubResource("BoxShape3D_of87a")
