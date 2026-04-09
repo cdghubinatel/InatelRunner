@@ -20,7 +20,7 @@ Global="*res://Scripts/Global.gd"
 
 [dotnet]
 
-project/assembly_name="Dock&Roll"
+project/assembly_name="InatelRunner"
 
 [input]
 
@@ -52,6 +52,6 @@ ui_jump={
 
 [rendering]
 
-anti_aliasing/quality/msaa_3d=3
-anti_aliasing/quality/screen_space_aa=1
-anti_aliasing/quality/use_taa=true
+anti_aliasing/quality/msaa_3d=0
+anti_aliasing/quality/screen_space_aa=0
+anti_aliasing/quality/use_taa=false
