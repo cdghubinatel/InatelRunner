@@ -3,9 +3,9 @@ using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.IO; // Adicione esta linha
-
+using System.IO;
 public partial class HeadTracker : Node
 {
 	private InferenceSession session;
@@ -20,8 +20,7 @@ public partial class HeadTracker : Node
 	private const int ModelInputWidth = 640;
 	private const int ModelInputHeight = 640;
 	
-	private int frameCounter = 0;
-	private const int ProcessEveryNFrames = 2; 
+	private bool isInferencing = false;
 	
 	public float ArmCenterPositionX { get; private set; } = 0.5f;
 	public bool ShouldJump { get; private set; } = false;
@@ -85,63 +84,67 @@ public partial class HeadTracker : Node
 	public override void _Process(double delta)
 	{
 		if (cameraTexture == null || session == null) return;
-
-		frameCounter++;
-		if (frameCounter % ProcessEveryNFrames != 0) return;
+		if (isInferencing) return;
 
 		Image img = cameraTexture.GetImage();
-		
 		if (img == null || img.IsEmpty()) return;
 
-		// Copiar e redimensionar para a IA
 		Image imgForAi = (Image)img.Duplicate();
 		imgForAi.Resize(ModelInputWidth, ModelInputHeight); 
-		
-		var inputTensor = ConvertGodotImageToTensor(imgForAi);
+		byte[] imgData = imgForAi.GetData();
+		int channels = (imgForAi.GetFormat() == Image.Format.Rgba8) ? 4 : 3;
 
-		try 
-		{
-			var inputs = new NamedOnnxValue[] { NamedOnnxValue.CreateFromTensor("images", inputTensor) };
-			
-			using (var results = session.Run(inputs))
+		imgForAi.Dispose();
+		img.Dispose();
+
+		isInferencing = true;
+		
+		Task.Run(() => {
+			try 
 			{
-				var output = results.First().AsTensor<float>();
-				ProcessBodyPose(output);
+				var inputTensor = ConvertGodotImageToTensor(imgData, channels);
+				var inputs = new NamedOnnxValue[] { NamedOnnxValue.CreateFromTensor("images", inputTensor) };
+				
+				using (var results = session.Run(inputs))
+				{
+					var output = results.First().AsTensor<float>();
+					ProcessBodyPose(output);
+				}
 			}
-		}
-		catch (Exception e) { 
-			GD.Print("Erro na inferência: " + e.Message);
-		}
+			catch (Exception e) 
+			{ 
+				GD.Print("Erro na inferência: " + e.Message);
+			}
+			finally 
+			{
+				isInferencing = false;
+			}
+		});
 	}
 
-	// (Funções auxiliares mantêm-se iguais)
-	private DenseTensor<float> ConvertGodotImageToTensor(Image image)
+	private DenseTensor<float> ConvertGodotImageToTensor(byte[] data, int channels)
 	{
-		var tensor = new DenseTensor<float>(new[] { 1, 3, ModelInputHeight, ModelInputWidth });
-		byte[] data = image.GetData();
-		
-		int channels = (image.GetFormat() == Image.Format.Rgba8) ? 4 : 3;
 		int pixelCount = ModelInputWidth * ModelInputHeight;
+		float[] floatArray = new float[3 * pixelCount];
 		
-		if (data.Length < pixelCount * channels) return tensor;
+		if (data.Length < pixelCount * channels) 
+		{
+			return new DenseTensor<float>(new[] { 1, 3, ModelInputHeight, ModelInputWidth });
+		}
+
+		int gOffset = pixelCount;
+		int bOffset = 2 * pixelCount;
+		float inv255 = 1.0f / 255.0f;
 
 		for (int i = 0; i < pixelCount; i++)
 		{
 			int dataIndex = i * channels;
-			
-			float r = data[dataIndex] / 255.0f;
-			float g = data[dataIndex + 1] / 255.0f;
-			float b = data[dataIndex + 2] / 255.0f;
-
-			int x = i % ModelInputWidth;
-			int y = i / ModelInputWidth;
-
-			tensor[0, 0, y, x] = r;
-			tensor[0, 1, y, x] = g;
-			tensor[0, 2, y, x] = b;
+			floatArray[i] = data[dataIndex] * inv255;
+			floatArray[gOffset + i] = data[dataIndex + 1] * inv255;
+			floatArray[bOffset + i] = data[dataIndex + 2] * inv255;
 		}
 
-		return tensor;
+		return new DenseTensor<float>(floatArray, new[] { 1, 3, ModelInputHeight, ModelInputWidth });
 	}
 
 	private void ProcessBodyPose(Tensor<float> output)
@@ -162,24 +165,35 @@ public partial class HeadTracker : Node
 
 		if (bestAnchorIndex != -1 && maxScore > 0.5f)
 		{
-			// 1. MOVIMENTO LATERAL (Média dos pulsos ou ombros)
-			// Keypoints no YOLO Pose começam no índice 5 (x,y,conf)
-			// Pulso Esquerdo: 9, Pulso Direito: 10
+			// 1. MOVIMENTO LATERAL (Braços relativos ao centro dos ombros)
+			float shoulderLX = output[0, 5 + (5 * 3), bestAnchorIndex];
+			float shoulderRX = output[0, 5 + (6 * 3), bestAnchorIndex];
+			float shoulderCenter = (shoulderLX + shoulderRX) / 2.0f;
+
 			float wristLX = output[0, 5 + (9 * 3), bestAnchorIndex];
 			float wristRX = output[0, 5 + (10 * 3), bestAnchorIndex];
 			float avgWristX = (wristLX + wristRX) / 2.0f;
 
-			float normalizedX = avgWristX / ModelInputWidth;
-			ArmCenterPositionX = 1.0f - Math.Clamp(normalizedX, 0f, 1f);
+			// Desvio horizontal em pixels
+			float offset = avgWristX - shoulderCenter;
+			
+			// Margem para trocar de faixa (reduzido para dar resposta instantânea)
+			float offsetThreshold = 15.0f; 
+
+			if (offset > offsetThreshold) {
+				ArmCenterPositionX = 0.2f; // Força target_lane = 2 (Direita) no Player.gd
+			} else if (offset < -offsetThreshold) {
+				ArmCenterPositionX = 0.8f; // Força target_lane = 0 (Esquerda) no Player.gd
+			} else {
+				ArmCenterPositionX = 0.5f; // Centro
+			}
 
 			// 2. LÓGICA DO PULO (Braços acima da cabeça/ombros)
-			// Se a posição Y do pulso (ponto 9/10) for menor que a do ombro (ponto 5/6)
-			// Nota: No 2D do computador, Y=0 é o topo. Então pulso < ombro significa braço levantado.
 			float shoulderLY = output[0, 5 + (5 * 3) + 1, bestAnchorIndex];
 			float wristLY = output[0, 5 + (9 * 3) + 1, bestAnchorIndex];
 
-			// Se o pulso estiver consideravelmente acima do ombro
-			ShouldJump = wristLY < (shoulderLY - 30); 
+			// Menor limiar (-10 invés de -30) faz o pulo ler gestos ágeis
+			ShouldJump = wristLY < (shoulderLY - 10);  
 		}
 }
 

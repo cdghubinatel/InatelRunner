@@ -106,6 +106,23 @@ theme_override_font_sizes/font_size = 120
 text = "Inatel Runner"
 horizontal_alignment = 1
 
+[node name="ResetRankingButton" type="Button" parent="."]
+modulate = Color(0.6, 0.6, 0.6, 0.15)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -120.0
+offset_top = -50.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 20
+text = "RESET"
+
 [node name="Sounds" type="Node3D" parent="."]
 
 [node name="MenuMusic" type="AudioStreamPlayer" parent="Sounds"]
@@ -113,3 +130,4 @@ stream = ExtResource("4_ghw46")
 autoplay = true
 
 [connection signal="pressed" from="PanelContainer/Button" to="." method="_on_button_pressed"]
+[connection signal="pressed" from="ResetRankingButton" to="." method="_on_reset_ranking_button_pressed"]

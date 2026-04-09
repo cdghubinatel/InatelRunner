@@ -9,3 +9,7 @@ func _on_button_pressed():
 func _input(event):
 	if event.is_action_pressed("ui_cancel"):
 		get_tree().quit()
+
+func _on_reset_ranking_button_pressed():
+	Global.ranking_list.clear()
+	Global.save_ranking()

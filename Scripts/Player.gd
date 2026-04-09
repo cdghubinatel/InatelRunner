@@ -22,9 +22,9 @@ var game_starts = false
 var game_won = false
 
 # --- VARIÁVEIS DE MOVIMENTO ---
-var speed = 3.0
+var speed = 6.0
 var jump_velocity = 10.0 
-const jump_speed = 3.0 
+const jump_speed = 6.0 
 const gravity = 20
 
 #Variáveis para o sistema de faixas
