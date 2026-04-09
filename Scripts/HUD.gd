@@ -10,6 +10,8 @@ extends CanvasLayer
 @onready var level_label = $Level/ReferenceRect/Label
 @onready var level_results_label = $GameOverScreen/Container/Results/Level
 @onready var score_results_label = $GameOverScreen/Container/Results/Score
+@onready var next_level_results_label = $LevelUpScreen/Container/Results/Level
+@onready var next_score_results_label = $LevelUpScreen/Container/Results/Score
 
 func _ready():
 	Global.score_updated.connect(_update_score)
@@ -60,3 +62,6 @@ func _update_level():
 func _update_results():
 	level_results_label.text = str("Level: ", Global.level)
 	score_results_label.text  = str("Score: ", Global.score, " / ", Global.score_requirement)
+	
+	next_level_results_label.text = str("Level: ", Global.level)
+	next_score_results_label.text  = str("Score: ", Global.score, " / ", Global.score_requirement)

@@ -1,6 +1,7 @@
 extends CharacterBody3D
 
 @onready var game_over_screen = $HUD/GameOverScreen
+@onready var levelup_screen = $HUD/LevelUpScreen
 @onready var name_input_container = $HUD/GameOverScreen/Container/Results/NameInputContainer
 @onready var name_edit = $HUD/GameOverScreen/Container/Results/NameInputContainer/LineEdit
 @onready var ranking_display = $HUD/GameOverScreen/Container/Results/RankingDisplay
@@ -163,6 +164,7 @@ func game_over():
 	if Global.lives <= 0:
 		game_won = false
 		game_over_screen.visible = true
+		levelup_screen.visible = false
 		game_results_label.text = "GAME OVER"
 		progress_button.text = "RESTART"
 		current_state = game_state.RETRY
@@ -173,16 +175,11 @@ func game_over():
 
 	elif Global.level_time <= 0:
 		game_won = true
-		game_over_screen.visible = true
-		game_results_label.text = "LEVEL UP!"
-		progress_button.text = "CONTINUE"
+		game_over_screen.visible = false
+		levelup_screen.visible = true
 		current_state = game_state.CONTINUE
 		level_pass_music.play()
 
-		name_input_container.visible = false
-		update_ranking_ui()
-
-	game_over_screen.visible = true
 	Global.update_results.emit()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	
@@ -224,6 +221,7 @@ func update_ranking_ui():
 		var label = Label.new()
 		label.text = "%dº  %s : %d" % [i + 1, entry["name"], entry["score"]]
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size", 32)
 		ranking_display.add_child(label)
 		
 func reset_game_state():
@@ -232,6 +230,7 @@ func reset_game_state():
 	Global.game_started = false
 	game_won = false
 	game_over_screen.visible = false
+	levelup_screen.visible = false
 	name_edit.text = ""
 	name_input_container.visible = false
 	world.reset_world()
