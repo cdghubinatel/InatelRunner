@@ -21,7 +21,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          global-json-file: global.json
 
       - name: Setup Godot
         uses: chickensoft-games/setup-godot@v2
@@ -87,7 +87,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          global-json-file: global.json
 
       - name: Setup Godot
         uses: chickensoft-games/setup-godot@v2
