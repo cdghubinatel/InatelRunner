@@ -16,3 +16,4 @@ obj/
 logs/
 *.log
 Assets/
+builds/

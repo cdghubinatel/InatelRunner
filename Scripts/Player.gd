@@ -81,7 +81,7 @@ func handle_movement(delta):
 
 		# Cálculo da posição X alvo (Interpolação suave)
 		var target_x = (target_lane - 1) * lane_distance
-		global_transform.origin.x = lerp(global_transform.origin.x, target_x, delta * lane_transition_speed)
+		global_transform.origin.x = move_toward(global_transform.origin.x, target_x, delta * lane_transition_speed * Global.speed_multiplier)
 
 		# --- 2. LÓGICA DE PULO (TECLADO + IA) ---
 		
@@ -97,8 +97,8 @@ func handle_movement(delta):
 			# Aplicar gravidade enquanto estiver no ar
 			velocity.y -= gravity * delta
 
-		# Movimento frontal
-		velocity.z = jump_speed if is_jumping else speed
+		# Movimento frontal com multiplicador de velocidade (Dificuldade Progressiva)
+		velocity.z = (jump_speed if is_jumping else speed) * Global.speed_multiplier
 		velocity.x = 0 
 		
 		move_and_slide()
@@ -154,6 +154,39 @@ func apply_effect(effect_name):
 			if Global.level_time >= 10:
 				Global.level_time -= 10
 				Global.level_time_updated.emit()
+
+func play_damage_feedback():
+	var mesh_node = get_node_or_null("Root Scene")
+	if mesh_node:
+		for i in range(3):
+			mesh_node.visible = false
+			await get_tree().create_timer(0.1).timeout
+			mesh_node.visible = true
+			await get_tree().create_timer(0.1).timeout
+		
+	var cam = get_viewport().get_camera_3d()
+	if cam:
+		# Filtro Vermelho
+		var canvas = CanvasLayer.new()
+		var color_rect = ColorRect.new()
+		color_rect.color = Color(1.0, 0.0, 0.0, 0.4)
+		color_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		canvas.add_child(color_rect)
+		add_child(canvas)
+		
+		var original_h = cam.h_offset
+		var original_v = cam.v_offset
+		var tween = create_tween()
+		tween.set_parallel(true)
+		# Anima o fade do filtro e o shake juntos
+		tween.tween_property(color_rect, "color:a", 0.0, 0.4)
+		for i in range(4):
+			tween.tween_property(cam, "h_offset", randf_range(-0.3, 0.3), 0.05)
+			tween.tween_property(cam, "v_offset", randf_range(-0.3, 0.3), 0.05)
+			tween.chain()
+		tween.tween_property(cam, "h_offset", original_h, 0.05)
+		tween.tween_property(cam, "v_offset", original_v, 0.05)
+		tween.tween_callback(canvas.queue_free)
 
 func game_over():
 	game_timer.stop()

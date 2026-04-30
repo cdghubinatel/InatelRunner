@@ -9,7 +9,16 @@ var advanced_obstacles = []
 @onready var damage_sfx = $Sounds/DamageSFX
 
 func _ready():
+	set_process(false)
 	spawn_obstacle()
+	
+func reset_obstacle():
+	$CollisionShape3D.set_deferred("disabled", false)
+	for child in get_children():
+		if child is Node3D:
+			child.visible = true
+			if child.name != "Sounds" and child.name != "CollisionShape3D":
+				child.transform.origin = Vector3.ZERO # Reseta a posição local (crucial pro Pool!)
 	
 # Spawn obstacle	
 func spawn_obstacle():
@@ -21,11 +30,19 @@ func spawn_obstacle():
 		
 	var obstacle_instance = obstacle_resource.instantiate()
 	
-	# If it's an advanced obstacle, move it
-	if obstacle_resource in Global.advanced_obstacle_resources:
-		var height_above_platform = 1.2
-		obstacle_instance.transform.origin.y += height_above_platform
-		move_obstacle(obstacle_instance)
+	var res_path = obstacle_resource.resource_path
+	var is_car = res_path.find("car_") != -1
+	var is_advanced = obstacle_resource in Global.advanced_obstacle_resources
+	
+	if is_car or is_advanced:
+		if is_advanced:
+			var height_above_platform = 1.2
+			obstacle_instance.transform.origin.y += height_above_platform
+		
+		# Carros se movem mais rápido que abelhas
+		var move_speed = -12 if is_car else -3
+		move_obstacle(obstacle_instance, move_speed)
+		set_process(true)
 		
 	add_child(obstacle_instance)
 	
@@ -58,13 +75,14 @@ func _on_body_entered(body):
 			Global.lives -= 1
 			Global.lives_updated.emit()
 			damage_sfx.play()
+			if body.has_method("play_damage_feedback"):
+				body.play_damage_feedback()
 			print("Deducting Lives")
 		else:
 			print("Game over")
 		
 # Move Advanced Obstacles
-func move_obstacle(obstacle_instance):
-	var speed = -3
+func move_obstacle(obstacle_instance, speed = -3):
 	# Store the obstacle instance and its speed in a dictionary
 	var obstacle_data = {"instance": obstacle_instance, "speed": speed}
 	# Add the obstacle data to an array to keep track of all moving obstacles

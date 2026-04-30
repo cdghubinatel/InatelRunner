@@ -21,6 +21,8 @@ public partial class HeadTracker : Node
 	private const int ModelInputHeight = 640;
 	
 	private bool isInferencing = false;
+	private double timeSinceLastInference = 0.0;
+	private const double InferenceCooldown = 0.066; // Limita a IA para ~15 FPS
 	
 	public float ArmCenterPositionX { get; private set; } = 0.5f;
 	public bool ShouldJump { get; private set; } = false;
@@ -43,8 +45,14 @@ public partial class HeadTracker : Node
 		// 1. Carregar IA
 		try 
 		{
-			session = new InferenceSession(userPath);
-			GD.Print("Modelo IA Carregado!");
+			using (var options = new SessionOptions())
+			{
+				options.InterOpNumThreads = 1;
+				options.IntraOpNumThreads = 1;
+				options.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
+				session = new InferenceSession(userPath, options);
+			}
+			GD.Print("Modelo IA Carregado com Otimizações de CPU!");
 		}
 		catch (Exception e)
 		{
@@ -84,17 +92,18 @@ public partial class HeadTracker : Node
 	public override void _Process(double delta)
 	{
 		if (cameraTexture == null || session == null) return;
+		
+		timeSinceLastInference += delta;
+		if (timeSinceLastInference < InferenceCooldown) return;
+		
 		if (isInferencing) return;
+		
+		timeSinceLastInference = 0.0;
 
 		Image img = cameraTexture.GetImage();
 		if (img == null || img.IsEmpty()) return;
 
 		Image imgForAi = (Image)img.Duplicate();
-		imgForAi.Resize(ModelInputWidth, ModelInputHeight); 
-		byte[] imgData = imgForAi.GetData();
-		int channels = (imgForAi.GetFormat() == Image.Format.Rgba8) ? 4 : 3;
-
-		imgForAi.Dispose();
 		img.Dispose();
 
 		isInferencing = true;
@@ -102,6 +111,12 @@ public partial class HeadTracker : Node
 		Task.Run(() => {
 			try 
 			{
+				// Movemos o processamento pesado (Resize) para a thread secundária!
+				imgForAi.Resize(ModelInputWidth, ModelInputHeight); 
+				byte[] imgData = imgForAi.GetData();
+				int channels = (imgForAi.GetFormat() == Image.Format.Rgba8) ? 4 : 3;
+				imgForAi.Dispose();
+
 				var inputTensor = ConvertGodotImageToTensor(imgData, channels);
 				var inputs = new NamedOnnxValue[] { NamedOnnxValue.CreateFromTensor("images", inputTensor) };
 				

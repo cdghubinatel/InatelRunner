@@ -8,13 +8,44 @@ extends StaticBody3D
 @onready var environment = $Environment
 @onready var collectibles = $Collectibles
 
+# --- OBJECT POOL SYSTEM ---
+var object_pool = {}
+
+func get_instance(resource: PackedScene) -> Node3D:
+	var res_path = resource.resource_path
+	if object_pool.has(res_path) and object_pool[res_path].size() > 0:
+		var instance = object_pool[res_path].pop_back()
+		instance.visible = true
+		instance.process_mode = Node.PROCESS_MODE_INHERIT # Reativa a física e scripts
+		if instance.has_method("reset_obstacle"):
+			instance.reset_obstacle()
+		return instance
+	else:
+		var instance = resource.instantiate()
+		instance.set_meta("pool_path", res_path)
+		return instance
+
+func return_to_pool(instance: Node3D):
+	if instance.has_meta("pool_path"):
+		var res_path = instance.get_meta("pool_path")
+		if not object_pool.has(res_path):
+			object_pool[res_path] = []
+		instance.visible = false
+		instance.process_mode = Node.PROCESS_MODE_DISABLED # Desativa física e CPU por completo!
+		instance.transform.origin = Vector3(0, -100, 0) 
+		object_pool[res_path].append(instance)
+	else:
+		instance.queue_free()
+# -------------------------
+
 # Platform vars
 var max_spawn_distance = 60.0
 var last_platform_position = Vector3()
 var last_air_platform_position = Vector3()
 var platform_length = 4
 var initial_platform_count = 8
-var cleanup_object_count = 8
+var cleanup_object_count = 30.0
+var platforms_without_obstacles = 0
 var player
 
 # Environmental variables
@@ -58,10 +89,10 @@ func _on_timer_timeout():
 func spawn_platform_segment():
 	# Randomly select a platform resource
 	var platform_resource = Global.platform_resources[randi() % Global.platform_resources.size()]
-	var new_platform = platform_resource.instantiate()
+	var new_platform = get_instance(platform_resource)
 	new_platform.transform.origin = last_platform_position
 	new_platform.scale.x = 3
-	platforms.add_child(new_platform)
+	if not new_platform.get_parent(): platforms.add_child(new_platform)
 	# Update the position for the next path segment
 	last_platform_position += Vector3(0, 0, platform_length)
 	# Spawn collectible on platform
@@ -81,10 +112,10 @@ func spawn_air_platform_segments():
 		var x_position = lane * 2
 		for i in range(number_of_in_air_platforms):
 			var platform_resource = Global.air_platforms_resources[randi() % Global.air_platforms_resources.size()]
-			var new_platform = platform_resource.instantiate()
+			var new_platform = get_instance(platform_resource)
 			var z_position = last_air_platform_position.z + i
 			new_platform.transform.origin = Vector3(x_position, y_position, z_position)
-			platforms.add_child(new_platform)
+			if not new_platform.get_parent(): platforms.add_child(new_platform)
 			if new_platform:
 				call_deferred("spawn_collectible", new_platform)
 		# Update the position to be after the last spawned in-air platform
@@ -98,13 +129,17 @@ func spawn_obstacle():
 	var obstacles_in_row = randi_range(1, 2)
 	var spacing = 1  # obstacle spacing in between
 	# Spawn random obstacles
-	if randf() < Global.obstacle_spawn_chance:
+	# Spawn random obstacles ou força spawn se demorou demais
+	if randf() < Global.obstacle_spawn_chance or platforms_without_obstacles >= 3:
+		platforms_without_obstacles = 0
 		for i in range(obstacles_in_row):
-			var obstacle_instance = Global.obstacle_scene.instantiate()
+			var obstacle_instance = get_instance(Global.obstacle_scene)
 			var x_position_index = i % possible_x_positions.size()
 			var x_position = possible_x_positions[x_position_index]
 			obstacle_instance.transform.origin = last_platform_position + Vector3(x_position * spacing, 0, platform_length)
-			obstacles.add_child(obstacle_instance)
+			if not obstacle_instance.get_parent(): obstacles.add_child(obstacle_instance)
+	else:
+		platforms_without_obstacles += 1
 	
 
 # Spawn Environmentals	
@@ -114,16 +149,16 @@ func spawn_sidewalk(along_z: float, y_level: float):
 	var distance_from_center = 7 # Ajuste para ficar entre a rua e as casas
 
 	# Calçada Esquerda
-	var side_l = sidewalk_res.instantiate()
+	var side_l = get_instance(sidewalk_res)
 	side_l.transform.origin = Vector3(-distance_from_center, y_level, along_z)
 	side_l.scale = Vector3.ONE * 10
-	environment.add_child(side_l)
+	if not side_l.get_parent(): environment.add_child(side_l)
 
 	# Calçada Direita
-	var side_r = sidewalk_res.instantiate()
+	var side_r = get_instance(sidewalk_res)
 	side_r.transform.origin = Vector3(distance_from_center, y_level, along_z)
 	side_r.scale = Vector3.ONE * 10
-	environment.add_child(side_r)
+	if not side_r.get_parent(): environment.add_child(side_r)
 	
 func spawn_houses(along_z: float):
 	# Pegamos o asset de casa do seu Global.gd
@@ -153,7 +188,7 @@ func spawn_houses(along_z: float):
 
 func spawn_ground_and_clouds(asset_category, along_z, y_pos):
 	var random_index = randi() % asset_category.size()
-	var instance = asset_category[random_index].instantiate()
+	var instance = get_instance(asset_category[random_index])
 	var side = left_side if randi() % 2 == 0 else right_side
 	var distance_from_platform = randf_range(7.0,9.0)
 	
@@ -164,7 +199,7 @@ func spawn_ground_and_clouds(asset_category, along_z, y_pos):
 		along_z                    # Z position along the path
 	)
 	# Add instance to the environment node
-	environment.add_child(instance)
+	if not instance.get_parent(): environment.add_child(instance)
 	
 func spawn_environmental_segment(along_z: float):
 	# Spawn ground instances
@@ -195,6 +230,11 @@ func spawn_collectible(platform_instance):
 		if platform_instance == null or not is_instance_valid(platform_instance):
 			return
 		var spawn_position = platform_instance.global_transform.origin + Vector3(0, 2, 0)
+		# Se for plataforma de chão, randomiza a faixa (Lane -2.5, 0 ou 2.5)
+		if spawn_position.y < 3.0:
+			var possible_x = [-2.5, 0, 2.5]
+			spawn_position.x = possible_x[randi() % possible_x.size()]
+			
 		var min_distance = 3
 		# Adjust the Y position if it's too close to an obstacle
 		for obstacle in obstacles.get_children():
@@ -210,17 +250,17 @@ func cleanup_old_objects():
 	# Remove platforms
 	for platform in platforms.get_children():
 		if platform.global_transform.origin.z < player.global_transform.origin.z - cleanup_object_count:
-			platform.queue_free() # Remove the platform from the scene
+			return_to_pool(platform) # Remove the platform from the scene
 
 	# Remove obstacles
 	for obstacle in obstacles.get_children():
 		if obstacle.global_transform.origin.z < player.global_transform.origin.z - cleanup_object_count:
-			obstacle.queue_free() # Remove the obstacle from the scene
+			return_to_pool(obstacle) # Remove the obstacle from the scene
 
 	# Remove environmentals
 	for element in environment.get_children():
 		if element.global_transform.origin.z < player.global_transform.origin.z - cleanup_object_count:
-			element.queue_free()
+			return_to_pool(element)
 			
 	# Remove collectibles
 	for collectible in collectibles.get_children():
@@ -239,15 +279,15 @@ func reset_objects():
 	
 	# Remove all platforms
 	for platform in platforms.get_children():
-		platform.queue_free()
+		return_to_pool(platform)
 
 	# Remove all obstacles
 	for obstacle in obstacles.get_children():
-		obstacle.queue_free()
+		return_to_pool(obstacle)
 
 	# Remove all environment objects
 	for object in environment.get_children():
-		object.queue_free()
+		return_to_pool(object)
 
 	# Remove all collectibles
 	for collectible in collectibles.get_children():

@@ -112,6 +112,7 @@ var final_score_requirement = 0
 var score_requirement_reached = false
 var time_reduction_bonus = 10
 var default_level_time = 20
+var speed_multiplier = 1.0
 
 func _ready():
 	load_ranking()
@@ -127,6 +128,7 @@ func new_game():
 	obstacle_spawn_chance = 0.25
 	advanced_obstacle_spawn_chance = 0
 	score_requirement_reached = false
+	speed_multiplier = 1.0
 	
 	setup_level_state()
 
@@ -142,6 +144,7 @@ func level_up():
 	level += 1
 	obstacle_spawn_chance = min(obstacle_spawn_chance + obstacle_spawn_increase_per_level, 0.6)
 	advanced_obstacle_spawn_chance = min(advanced_obstacle_spawn_chance + 0.02, 0.3)
+	speed_multiplier = min(speed_multiplier + 0.05, 2.0) # Aumenta 5%, limite máximo de 2.0x
 
 	if score >= score_requirement:
 		score_requirement_reached = true
