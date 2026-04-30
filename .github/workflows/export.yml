@@ -29,25 +29,25 @@ jobs:
           use-dotnet: true
           include-templates: true
 
-      - name: Verify Godot Installation
-        shell: bash
-        run: godot --version
+      - name: Install Virtual Display
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Clean Stale Import Metadata
+        run: |
+          find . -name "*.import" -not -path "./.godot/*" -delete
+          rm -rf .godot/
+          echo "Removed stale .import files and .godot cache"
 
       - name: Restore .NET Dependencies
         run: dotnet restore
 
-      - name: Generate .NET Bindings
-        shell: bash
-        run: godot --headless --build-solutions --quit || exit 0
-
-      - name: Build .NET Project
-        run: dotnet build --configuration Release
+      - name: Import Project (with virtual display)
+        run: xvfb-run godot --headless --import --path . || true
 
       - name: Export Linux Build
-        shell: bash
         run: |
           mkdir -p builds/linux
-          godot --headless --path . --export-release "Linux" builds/linux/InatelRunner.x86_64 || exit 0
+          xvfb-run godot --headless --path . --export-release "Linux" builds/linux/InatelRunner.x86_64 || true
 
       - name: Verify Linux Export
         run: |
@@ -94,25 +94,25 @@ jobs:
           use-dotnet: true
           include-templates: true
 
-      - name: Verify Godot Installation
-        shell: bash
-        run: godot --version
+      - name: Clean Stale Import Metadata
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -Filter "*.import" | Where-Object { $_.FullName -notlike "*\.godot\*" } | Remove-Item -Force
+          if (Test-Path ".godot") { Remove-Item -Recurse -Force ".godot" }
+          Write-Host "Removed stale .import files and .godot cache"
 
       - name: Restore .NET Dependencies
         run: dotnet restore
 
-      - name: Generate .NET Bindings
+      - name: Import Project
         shell: bash
-        run: godot --headless --build-solutions --quit || exit 0
-
-      - name: Build .NET Project
-        run: dotnet build --configuration Release
+        run: godot --headless --import --path . || true
 
       - name: Export Windows Build
         shell: bash
         run: |
           mkdir -p builds/windows
-          godot --headless --path . --export-release "Windows" builds/windows/InatelRunner.exe || exit 0
+          godot --headless --path . --export-release "Windows" builds/windows/InatelRunner.exe || true
 
       - name: Verify Windows Export
         shell: pwsh
