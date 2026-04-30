@@ -8,39 +8,46 @@ jobs:
   export-linux:
     name: Export Linux
     runs-on: ubuntu-latest
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      DOTNET_NOLOGO: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Setup .NET
+      - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
-      - name: Install Godot
-        run: |
-          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_mono_linux_x86_64.zip
-          unzip -q Godot_v4.5.1-stable_mono_linux_x86_64.zip
-          cp -r Godot_v4.5.1-stable_mono_linux_x86_64/* .
-          chmod +x Godot_v4.5.1-stable_mono_linux.x86_64
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.5.1-stable
+          use-dotnet: true
+          include-templates: true
 
-      - name: .NET Restore
+      - name: Verify Godot Installation
+        shell: bash
+        run: godot --version
+
+      - name: Restore .NET Dependencies
         run: dotnet restore
 
-      - name: Install Export Templates
-        run: |
-          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_mono_export_templates.tpz
-          mkdir -p ~/.local/share/godot/export_templates/4.5.1.stable.mono
-          unzip -q Godot_v4.5.1-stable_mono_export_templates.tpz -d templates_temp
-          mv templates_temp/templates/* ~/.local/share/godot/export_templates/4.5.1.stable.mono/
-          rm -rf templates_temp Godot_v4.5.1-stable_mono_export_templates.tpz
+      - name: Generate .NET Bindings
+        shell: bash
+        run: godot --headless --build-solutions --quit || exit 0
 
-      - name: Export Linux
+      - name: Build .NET Project
+        run: dotnet build --configuration Release
+
+      - name: Export Linux Build
+        shell: bash
         run: |
           mkdir -p builds/linux
-          ./Godot_v4.5.1-stable_mono_linux.x86_64 --headless --path . --export-release "Linux" builds/linux/InatelRunner.x86_64 || true
+          godot --headless --path . --export-release "Linux" builds/linux/InatelRunner.x86_64 || exit 0
 
       - name: Verify Linux Export
         run: |
@@ -48,7 +55,7 @@ jobs:
             echo "::error::O executável do Linux não foi gerado!"
             exit 1
           fi
-          echo "Sucesso: builds/linux/InatelRunner.x86_64 encontrado ($(du -h builds/linux/InatelRunner.x86_64 | cut -f1))"
+          echo "✅ builds/linux/InatelRunner.x86_64 ($(du -h builds/linux/InatelRunner.x86_64 | cut -f1))"
 
       - name: Build Linux Installer (.deb)
         run: |
@@ -66,48 +73,46 @@ jobs:
   export-windows:
     name: Export Windows
     runs-on: windows-latest
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      DOTNET_NOLOGO: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Setup .NET
+      - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
-      - name: Install Godot
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri "https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_mono_win64.zip" -OutFile "Godot.zip"
-          Expand-Archive -Path "Godot.zip" -DestinationPath "GodotTemp"
-          Copy-Item -Path "GodotTemp/Godot_v4.5.1-stable_mono_win64/*" -Destination "." -Recurse
-          Remove-Item -Path "GodotTemp" -Recurse -Force
-          Remove-Item -Path "Godot.zip" -Force
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.5.1-stable
+          use-dotnet: true
+          include-templates: true
 
-      - name: .NET Restore
+      - name: Verify Godot Installation
+        shell: bash
+        run: godot --version
+
+      - name: Restore .NET Dependencies
         run: dotnet restore
 
-      - name: Install Export Templates
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri "https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_mono_export_templates.tpz" -OutFile "Templates.zip"
-          $templatesDir = "$env:APPDATA\Godot\export_templates\4.5.1.stable.mono"
-          New-Item -ItemType Directory -Force -Path $templatesDir
-          Expand-Archive -Path "Templates.zip" -DestinationPath "templates_temp"
-          Copy-Item -Path "templates_temp/templates/*" -Destination $templatesDir -Recurse
-          Remove-Item -Path "templates_temp" -Recurse -Force
-          Remove-Item -Path "Templates.zip" -Force
+      - name: Generate .NET Bindings
+        shell: bash
+        run: godot --headless --build-solutions --quit || exit 0
 
-      - name: Export Windows
-        shell: pwsh
+      - name: Build .NET Project
+        run: dotnet build --configuration Release
+
+      - name: Export Windows Build
+        shell: bash
         run: |
-          mkdir builds\windows
-          $godotExe = (Get-ChildItem -Filter "Godot_v4.5.1-stable_mono_win64_console.exe").FullName
-          Write-Host "Usando: $godotExe"
-          $proc = Start-Process -FilePath $godotExe -ArgumentList "--headless","--path",".","--export-release","Windows","builds\windows\InatelRunner.exe" -Wait -PassThru -NoNewWindow
-          Write-Host "Godot finalizou com código: $($proc.ExitCode)"
+          mkdir -p builds/windows
+          godot --headless --path . --export-release "Windows" builds/windows/InatelRunner.exe || exit 0
 
       - name: Verify Windows Export
         shell: pwsh
@@ -117,7 +122,7 @@ jobs:
             exit 1
           }
           $size = (Get-Item "builds\windows\InatelRunner.exe").Length / 1MB
-          Write-Host "Sucesso: InatelRunner.exe encontrado ($([math]::Round($size, 1)) MB)"
+          Write-Host "✅ InatelRunner.exe ($([math]::Round($size, 1)) MB)"
 
       - name: Build Windows Installer (Inno Setup)
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
