@@ -60,9 +60,16 @@ jobs:
         with:
           project-file: installer/windows.iss
 
-      - name: Upload Artifacts
+      - name: Upload Windows Installer
         uses: actions/upload-artifact@v4
         with:
-          name: InatelRunner-Installers
-          path: builds/installer/
+          name: InatelRunner-Windows-Installer
+          path: builds/installer/InatelRunner_Setup.exe
+          retention-days: 7
+
+      - name: Upload Linux Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: InatelRunner-Linux-Installer
+          path: builds/installer/InatelRunner_Linux.deb
           retention-days: 7
