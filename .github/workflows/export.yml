@@ -11,6 +11,7 @@ jobs:
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: true
       DOTNET_NOLOGO: true
+      DOTNET_ROLL_FORWARD: LatestPatch
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,16 +39,16 @@ jobs:
           rm -rf .godot/
           echo "Removed stale .import files and .godot cache"
 
-      - name: Restore .NET Dependencies
-        run: dotnet restore
+      - name: Build .NET Assemblies
+        run: dotnet build
 
       - name: Import Project (with virtual display)
-        run: xvfb-run godot --headless --import --path . || true
+        run: xvfb-run godot --headless --editor --quit
 
       - name: Export Linux Build
         run: |
           mkdir -p builds/linux
-          xvfb-run godot --headless --path . --export-release "Linux" builds/linux/InatelRunner.x86_64 || true
+          xvfb-run godot --headless --path . --export-release "Linux" builds/linux/InatelRunner.x86_64
 
       - name: Verify Linux Export
         run: |
@@ -76,6 +77,7 @@ jobs:
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: true
       DOTNET_NOLOGO: true
+      DOTNET_ROLL_FORWARD: LatestPatch
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -101,18 +103,18 @@ jobs:
           if (Test-Path ".godot") { Remove-Item -Recurse -Force ".godot" }
           Write-Host "Removed stale .import files and .godot cache"
 
-      - name: Restore .NET Dependencies
-        run: dotnet restore
+      - name: Build .NET Assemblies
+        run: dotnet build
 
       - name: Import Project
         shell: bash
-        run: godot --headless --import --path . || true
+        run: godot --headless --editor --quit
 
       - name: Export Windows Build
         shell: bash
         run: |
           mkdir -p builds/windows
-          godot --headless --path . --export-release "Windows" builds/windows/InatelRunner.exe || true
+          godot --headless --path . --export-release "Windows" builds/windows/InatelRunner.exe
 
       - name: Verify Windows Export
         shell: pwsh
