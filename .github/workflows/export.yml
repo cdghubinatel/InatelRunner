@@ -17,7 +17,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Install Godot
         run: |
@@ -29,6 +29,9 @@ jobs:
 
       - name: .NET Restore
         run: dotnet restore
+
+      - name: Import Assets
+        run: ./godot --headless --editor --quit-after 30 --path .
 
       - name: Install Export Templates
         run: |
@@ -42,6 +45,13 @@ jobs:
         run: |
           mkdir -p builds/linux
           ./godot --headless --path . --export-release "Linux" builds/linux/InatelRunner.x86_64
+
+      - name: Verify Linux Export
+        run: |
+          if [ ! -f "builds/linux/InatelRunner.x86_64" ]; then
+            echo "Erro: O executável do Linux não foi gerado!"
+            exit 1
+          fi
 
       - name: Build Linux Installer (.deb)
         run: |
@@ -68,20 +78,25 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Install Godot
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri "https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_mono_win64.zip" -OutFile "Godot.zip"
           Expand-Archive -Path "Godot.zip" -DestinationPath "GodotTemp"
-          Copy-Item -Path "GodotTemp/Godot_v4.5.1-stable_mono_win64/*" -Destination "." -Recurse
-          Rename-Item -Path "Godot_v4.5.1-stable_mono_win64.exe" -NewName "godot.exe"
+          $exePath = Get-ChildItem -Path "GodotTemp" -Filter "*.exe" -Recurse | Select-Object -First 1
+          Copy-Item -Path $exePath.FullName -Destination "godot.exe"
+          $sharpPath = Get-ChildItem -Path "GodotTemp" -Filter "GodotSharp" -Directory -Recurse | Select-Object -First 1
+          Copy-Item -Path $sharpPath.FullName -Destination "GodotSharp" -Recurse
           Remove-Item -Path "GodotTemp" -Recurse -Force
           Remove-Item -Path "Godot.zip" -Force
 
       - name: .NET Restore
         run: dotnet restore
+
+      - name: Import Assets
+        run: .\godot.exe --headless --editor --quit-after 30 --path .
 
       - name: Install Export Templates
         shell: pwsh
@@ -98,6 +113,14 @@ jobs:
         run: |
           mkdir builds\windows
           .\godot.exe --headless --path . --export-release "Windows" builds\windows\InatelRunner.exe
+
+      - name: Verify Windows Export
+        shell: pwsh
+        run: |
+          if (!(Test-Path "builds\windows\InatelRunner.exe")) {
+            Write-Error "Erro: O executável do Windows não foi gerado!"
+            exit 1
+          }
 
       - name: Build Windows Installer (Inno Setup)
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
