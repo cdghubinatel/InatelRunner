@@ -30,6 +30,8 @@ jobs:
         run: dotnet restore
 
       - name: Import Assets
+        env:
+          DOTNET_ROLL_FORWARD: Disable
         run: ./Godot_v4.5.1-stable_mono_linux.x86_64 --headless --editor --quit-after 30 --path .
 
       - name: Install Export Templates
@@ -41,6 +43,8 @@ jobs:
           rm -rf templates_temp Godot_v4.5.1-stable_mono_export_templates.tpz
 
       - name: Export Linux
+        env:
+          DOTNET_ROLL_FORWARD: Disable
         run: |
           mkdir -p builds/linux
           ./Godot_v4.5.1-stable_mono_linux.x86_64 --headless --path . --export-release "Linux" builds/linux/InatelRunner.x86_64
@@ -92,6 +96,8 @@ jobs:
         run: dotnet restore
 
       - name: Import Assets
+        env:
+          DOTNET_ROLL_FORWARD: Disable
         shell: pwsh
         run: |
           $godotExe = (Get-ChildItem -Filter "Godot_v4.5.1-stable_mono_win64.exe").FullName
@@ -109,6 +115,8 @@ jobs:
           Remove-Item -Path "Templates.zip" -Force
 
       - name: Export Windows
+        env:
+          DOTNET_ROLL_FORWARD: Disable
         shell: pwsh
         run: |
           mkdir builds\windows
