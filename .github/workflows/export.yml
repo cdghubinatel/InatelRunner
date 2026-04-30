@@ -18,10 +18,13 @@ jobs:
         with:
           lfs: true
 
+      - name: Remove strict global.json
+        run: rm -f global.json
+
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: '8.0.x'
 
       - name: Setup Godot
         uses: chickensoft-games/setup-godot@v2
@@ -84,10 +87,14 @@ jobs:
         with:
           lfs: true
 
+      - name: Remove strict global.json
+        shell: pwsh
+        run: if (Test-Path "global.json") { Remove-Item "global.json" -Force }
+
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: '8.0.x'
 
       - name: Setup Godot
         uses: chickensoft-games/setup-godot@v2
