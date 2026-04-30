@@ -49,9 +49,20 @@ jobs:
           mkdir -p builds/windows
           ./godot --headless --path . --export-release "Windows" builds/windows/InatelRunner.exe
 
+      - name: Build Linux Installer (.deb)
+        run: |
+          cd installer
+          chmod +x build_deb.sh
+          ./build_deb.sh
+
+      - name: Build Windows Installer (Inno Setup)
+        uses: minushub/innosetup-action@v6
+        with:
+          project-file: installer/windows.iss
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: InatelRunner-Builds
-          path: builds/
+          name: InatelRunner-Installers
+          path: builds/installer/
           retention-days: 7
