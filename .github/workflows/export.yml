@@ -21,8 +21,8 @@ jobs:
 
       - name: Install Godot
         run: |
-          wget https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_mono_linux_x86_64.zip
-          unzip Godot_v4.5.1-stable_mono_linux_x86_64.zip
+          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_mono_linux_x86_64.zip
+          unzip -q Godot_v4.5.1-stable_mono_linux_x86_64.zip
           cp -r Godot_v4.5.1-stable_mono_linux_x86_64/* .
           chmod +x Godot_v4.5.1-stable_mono_linux.x86_64
 
@@ -31,27 +31,24 @@ jobs:
 
       - name: Install Export Templates
         run: |
-          wget https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_mono_export_templates.tpz
+          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_mono_export_templates.tpz
           mkdir -p ~/.local/share/godot/export_templates/4.5.1.stable.mono
-          unzip Godot_v4.5.1-stable_mono_export_templates.tpz -d templates_temp
+          unzip -q Godot_v4.5.1-stable_mono_export_templates.tpz -d templates_temp
           mv templates_temp/templates/* ~/.local/share/godot/export_templates/4.5.1.stable.mono/
           rm -rf templates_temp Godot_v4.5.1-stable_mono_export_templates.tpz
 
       - name: Export Linux
-        env:
-          DOTNET_ROLL_FORWARD: LatestPatch
         run: |
           mkdir -p builds/linux
           ./Godot_v4.5.1-stable_mono_linux.x86_64 --headless --path . --export-release "Linux" builds/linux/InatelRunner.x86_64 || true
-          echo "Exportação finalizada. Ignorando crashes de teardown do Godot (comum em headless)."
 
       - name: Verify Linux Export
         run: |
           if [ ! -f "builds/linux/InatelRunner.x86_64" ]; then
-            echo "Erro: O executável do Linux não foi gerado!"
+            echo "::error::O executável do Linux não foi gerado!"
             exit 1
           fi
-          echo "Sucesso: Executável Linux encontrado!"
+          echo "Sucesso: builds/linux/InatelRunner.x86_64 encontrado ($(du -h builds/linux/InatelRunner.x86_64 | cut -f1))"
 
       - name: Build Linux Installer (.deb)
         run: |
@@ -104,30 +101,23 @@ jobs:
           Remove-Item -Path "Templates.zip" -Force
 
       - name: Export Windows
-        env:
-          DOTNET_ROLL_FORWARD: LatestPatch
         shell: pwsh
         run: |
           mkdir builds\windows
-          $godotExe = (Get-ChildItem -Filter "*_console.exe").FullName
-          Write-Host "Usando o executável de console: $godotExe"
-          
-          # Executa o Godot em um bloco try-catch e não falha o passo se ele der crash no final
-          try {
-            & $godotExe --headless --path . --export-release "Windows" builds\windows\InatelRunner.exe
-          } catch {
-            Write-Host "Godot retornou erro no teardown, continuando..."
-          }
-          Write-Host "Exportação finalizada."
+          $godotExe = (Get-ChildItem -Filter "Godot_v4.5.1-stable_mono_win64_console.exe").FullName
+          Write-Host "Usando: $godotExe"
+          $proc = Start-Process -FilePath $godotExe -ArgumentList "--headless","--path",".","--export-release","Windows","builds\windows\InatelRunner.exe" -Wait -PassThru -NoNewWindow
+          Write-Host "Godot finalizou com código: $($proc.ExitCode)"
 
       - name: Verify Windows Export
         shell: pwsh
         run: |
           if (!(Test-Path "builds\windows\InatelRunner.exe")) {
-            Write-Error "Erro: O executável do Windows não foi gerado!"
+            Write-Error "O executável do Windows não foi gerado!"
             exit 1
           }
-          Write-Host "Sucesso: Executável Windows encontrado!"
+          $size = (Get-Item "builds\windows\InatelRunner.exe").Length / 1MB
+          Write-Host "Sucesso: InatelRunner.exe encontrado ($([math]::Round($size, 1)) MB)"
 
       - name: Build Windows Installer (Inno Setup)
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
