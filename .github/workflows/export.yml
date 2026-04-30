@@ -55,10 +55,14 @@ jobs:
           chmod +x build_deb.sh
           ./build_deb.sh
 
-      - name: Build Windows Installer (Inno Setup)
-        uses: minushub/innosetup-action@v6
+      - name: Install Inno Setup
+        uses: shogo82148/actions-setup-innosetup@v1
         with:
-          project-file: installer/windows.iss
+          innosetup-version: '6.2.2'
+
+      - name: Build Windows Installer (Inno Setup)
+        run: |
+          iscc installer/windows.iss
 
       - name: Upload Windows Installer
         uses: actions/upload-artifact@v4
