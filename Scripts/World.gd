@@ -249,22 +249,22 @@ func spawn_collectible(platform_instance):
 func cleanup_old_objects():
 	# Remove platforms
 	for platform in platforms.get_children():
-		if platform.global_transform.origin.z < player.global_transform.origin.z - cleanup_object_count:
+		if platform.visible and platform.global_transform.origin.z < player.global_transform.origin.z - cleanup_object_count:
 			return_to_pool(platform) # Remove the platform from the scene
 
 	# Remove obstacles
 	for obstacle in obstacles.get_children():
-		if obstacle.global_transform.origin.z < player.global_transform.origin.z - cleanup_object_count:
+		if obstacle.visible and obstacle.global_transform.origin.z < player.global_transform.origin.z - cleanup_object_count:
 			return_to_pool(obstacle) # Remove the obstacle from the scene
 
 	# Remove environmentals
 	for element in environment.get_children():
-		if element.global_transform.origin.z < player.global_transform.origin.z - cleanup_object_count:
+		if element.visible and element.global_transform.origin.z < player.global_transform.origin.z - cleanup_object_count:
 			return_to_pool(element)
 			
 	# Remove collectibles
 	for collectible in collectibles.get_children():
-		if collectible.global_transform.origin.z < player.global_transform.origin.z - cleanup_object_count:
+		if collectible.visible and collectible.global_transform.origin.z < player.global_transform.origin.z - cleanup_object_count:
 			collectible.queue_free()
 
 # Reset World State

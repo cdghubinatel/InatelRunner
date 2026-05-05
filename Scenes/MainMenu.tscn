@@ -4,6 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://dvb7o2r0vvngh" path="res://Assets/Inatel.png" id="2_ghw46"]
 [ext_resource type="PackedScene" uid="uid://cypv4o0nyjd80" path="res://Scenes/PlayerMenu.tscn" id="3_8saeu"]
 [ext_resource type="AudioStream" uid="uid://c8menbmpoydct" path="res://Assets/Music/menu_music.mp3" id="4_ghw46"]
+[ext_resource type="Script" path="res://Scripts/CameraTest.gd" id="5_test"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -128,6 +129,9 @@ text = "RESET"
 [node name="MenuMusic" type="AudioStreamPlayer" parent="Sounds"]
 stream = ExtResource("4_ghw46")
 autoplay = true
+
+[node name="CameraTest" type="Node" parent="."]
+script = ExtResource("5_test")
 
 [connection signal="pressed" from="PanelContainer/Button" to="." method="_on_button_pressed"]
 [connection signal="pressed" from="ResetRankingButton" to="." method="_on_reset_ranking_button_pressed"]

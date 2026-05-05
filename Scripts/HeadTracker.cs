@@ -6,11 +6,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.IO;
+using OpenCvSharp;
+
 public partial class HeadTracker : Node
 {
 	private InferenceSession session;
-	private CameraTexture cameraTexture;
-	private CameraFeed feed;
+	private VideoCapture capture;
+	private Mat frame;
+	private Godot.ImageTexture imageTexture;
 
 	[Export]
 	public TextureRect CameraPreview; 
@@ -29,6 +32,23 @@ public partial class HeadTracker : Node
 	
 	public override void _Ready()
 	{
+		// 1. Iniciar OpenCV VideoCapture
+		GD.Print("Iniciando OpenCV...");
+		capture = new VideoCapture(0, VideoCaptureAPIs.ANY);
+		if (capture.IsOpened())
+		{
+			GD.Print("OpenCV Câmera ativada!");
+			frame = new Mat();
+			imageTexture = new Godot.ImageTexture();
+		}
+		else
+		{
+			GD.PrintErr("OpenCV Falhou ao abrir câmera.");
+			capture.Dispose();
+			capture = null;
+		}
+
+		// 2. Carregar IA DEPOIS
 		string modelName = "yolo11n-pose.onnx";
 		string resPath = "res://" + modelName;
 		string userPath = OS.GetUserDataDir() + "/" + modelName;
@@ -42,7 +62,7 @@ public partial class HeadTracker : Node
 				GD.Print("Modelo IA copiado para a pasta do usuário.");
 			}
 		}
-		// 1. Carregar IA
+
 		try 
 		{
 			using (var options = new SessionOptions())
@@ -57,67 +77,60 @@ public partial class HeadTracker : Node
 		catch (Exception e)
 		{
 			GD.PrintErr("Erro ao carregar modelo ONNX: " + e.Message);
-		}
-
-		// 2. Iniciar Webcam
-		if (CameraServer.GetFeedCount() > 0)
-		{
-			feed = CameraServer.GetFeed(0);
-			
-			var formats = feed.GetFormats();
-			if (formats.Count > 0)
-			{
-				var parameters = (Godot.Collections.Dictionary)formats[0];
-				feed.SetFormat(0, parameters);
-			}
-
-			feed.FeedIsActive = true; 
-			GD.Print($"Webcam ativada: {feed.GetName()}");
-
-			// Criar a textura
-			cameraTexture = new CameraTexture();
-			cameraTexture.CameraFeedId = feed.GetId();
-
-			if (CameraPreview != null)
-			{
-				CameraPreview.Texture = cameraTexture;
-			}
-		}
-		else
-		{
-			GD.PrintErr("Nenhuma webcam detectada!");
+			if (e.InnerException != null) GD.PrintErr("Inner: " + e.InnerException.Message);
 		}
 	}
 
 	public override void _Process(double delta)
 	{
-		if (cameraTexture == null || session == null) return;
+		if (capture == null || !capture.IsOpened() || session == null) return;
+
+		// Lê o frame
+		capture.Read(frame);
+		if (frame.Empty()) return;
+
+		// Espelha a imagem UMA VEZ para a tela e para a IA (Custo zero de performance na duplicação)
+		Cv2.Flip(frame, frame, FlipMode.Y);
+
+		// OpenCV retorna BGR, precisamos de RGB para o Godot
+		Cv2.CvtColor(frame, frame, ColorConversionCodes.BGR2RGB);
+
+		// Copia os dados do Mat para um array de bytes gerenciado
+		int bufferSize = (int)(frame.Total() * frame.ElemSize());
+		byte[] imgData = new byte[bufferSize];
+		System.Runtime.InteropServices.Marshal.Copy(frame.Data, imgData, 0, bufferSize);
 		
+		// Cria a imagem do Godot
+		Godot.Image godotImage = Godot.Image.CreateFromData(frame.Width, frame.Height, false, Godot.Image.Format.Rgb8, imgData);
+		
+		// Atualiza o preview visual na UI
+		if (CameraPreview != null && godotImage != null)
+		{
+			var newTexture = Godot.ImageTexture.CreateFromImage(godotImage);
+			CameraPreview.Texture = newTexture;
+		}
+
 		timeSinceLastInference += delta;
 		if (timeSinceLastInference < InferenceCooldown) return;
 		
 		if (isInferencing) return;
 		
 		timeSinceLastInference = 0.0;
-
-		Image img = cameraTexture.GetImage();
-		if (img == null || img.IsEmpty()) return;
-
-		Image imgForAi = (Image)img.Duplicate();
-		img.Dispose();
-
 		isInferencing = true;
 		
+		// Passa a mesma imagem espelhada para a IA
+		Godot.Image imgForAi = (Godot.Image)godotImage.Duplicate();
+
 		Task.Run(() => {
 			try 
 			{
 				// Movemos o processamento pesado (Resize) para a thread secundária!
 				imgForAi.Resize(ModelInputWidth, ModelInputHeight); 
-				byte[] imgData = imgForAi.GetData();
-				int channels = (imgForAi.GetFormat() == Image.Format.Rgba8) ? 4 : 3;
+				byte[] resizedData = imgForAi.GetData();
+				int channels = 3; // RGB sempre tem 3 canais
 				imgForAi.Dispose();
 
-				var inputTensor = ConvertGodotImageToTensor(imgData, channels);
+				var inputTensor = ConvertGodotImageToTensor(resizedData, channels);
 				var inputs = new NamedOnnxValue[] { NamedOnnxValue.CreateFromTensor("images", inputTensor) };
 				
 				using (var results = session.Run(inputs))
@@ -195,10 +208,11 @@ public partial class HeadTracker : Node
 			// Margem para trocar de faixa (reduzido para dar resposta instantânea)
 			float offsetThreshold = 15.0f; 
 
+			// Como espelhamos a imagem, invertemos o resultado da matemática para o tracking ficar correto!
 			if (offset > offsetThreshold) {
-				ArmCenterPositionX = 0.2f; // Força target_lane = 2 (Direita) no Player.gd
-			} else if (offset < -offsetThreshold) {
 				ArmCenterPositionX = 0.8f; // Força target_lane = 0 (Esquerda) no Player.gd
+			} else if (offset < -offsetThreshold) {
+				ArmCenterPositionX = 0.2f; // Força target_lane = 2 (Direita) no Player.gd
 			} else {
 				ArmCenterPositionX = 0.5f; // Centro
 			}
@@ -210,11 +224,16 @@ public partial class HeadTracker : Node
 			// Menor limiar (-10 invés de -30) faz o pulo ler gestos ágeis
 			ShouldJump = wristLY < (shoulderLY - 10);  
 		}
-}
+	}
 
 	public override void _ExitTree()
 	{
 		session?.Dispose();
-		if (feed != null) feed.FeedIsActive = false;
+		if (capture != null)
+		{
+			capture.Release();
+			capture.Dispose();
+		}
+		if (frame != null) frame.Dispose();
 	}
 }
