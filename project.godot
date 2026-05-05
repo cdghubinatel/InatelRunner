@@ -12,7 +12,7 @@ config_version=5
 
 config/name="InatelRunner_Fix"
 run/main_scene="uid://dqqa1al6rptii"
-config/features=PackedStringArray("4.5", "C#", "Compatibility")
+config/features=PackedStringArray("4.5", "C#")
 
 [autoload]
 
@@ -54,6 +54,5 @@ ui_jump={
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-renderer/rendering_method.web="gl_compatibility"
 renderer/rendering_method.android="gl_compatibility"
 renderer/rendering_method.ios="gl_compatibility"

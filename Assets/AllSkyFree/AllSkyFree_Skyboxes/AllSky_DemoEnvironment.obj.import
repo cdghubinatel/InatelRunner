@@ -1,18 +1,25 @@
 [remap]
 
 importer="wavefront_obj"
+importer_version=1
 type="Mesh"
-path="res://.import/AllSky_DemoEnvironment.obj-517e0ecaef3d3085c5ea80296dd6b1d8.mesh"
+uid="uid://dy2th00ngw8pt"
+path="res://.godot/imported/AllSky_DemoEnvironment.obj-c54cac9d6cd242b0da31678738760d9e.mesh"
 
 [deps]
 
-files=[ "res://.import/AllSky_DemoEnvironment.obj-517e0ecaef3d3085c5ea80296dd6b1d8.mesh" ]
+files=["res://.godot/imported/AllSky_DemoEnvironment.obj-c54cac9d6cd242b0da31678738760d9e.mesh"]
 
-source_file="res://AllSkyFree_Skyboxes/AllSky_DemoEnvironment.obj"
-dest_files=[ "res://.import/AllSky_DemoEnvironment.obj-517e0ecaef3d3085c5ea80296dd6b1d8.mesh", "res://.import/AllSky_DemoEnvironment.obj-517e0ecaef3d3085c5ea80296dd6b1d8.mesh" ]
+source_file="res://Assets/AllSkyFree/AllSkyFree_Skyboxes/AllSky_DemoEnvironment.obj"
+dest_files=["res://.godot/imported/AllSky_DemoEnvironment.obj-c54cac9d6cd242b0da31678738760d9e.mesh", "res://.godot/imported/AllSky_DemoEnvironment.obj-c54cac9d6cd242b0da31678738760d9e.mesh"]
 
 [params]
 
 generate_tangents=true
-scale_mesh=Vector3( 1, 1, 1 )
-optimize_mesh=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false
