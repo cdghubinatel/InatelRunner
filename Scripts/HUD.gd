@@ -45,14 +45,18 @@ func _update_time():
 func _update_jump_boost():
 	jump_boost_label.text = str(Global.jump_boost_count)
 
+const HEART_FULL = preload("res://Assets/Icons/HeartFull.png")
+const HEART_HALF = preload("res://Assets/Icons/HeartHalf.png")
+const HEART_EMPTY = preload("res://Assets/Icons/HeartEmpty.png")
+
 # Lives UI
 func _update_lives():
 	if Global.lives >= 3:
-		lives_sprite.texture = preload("res://Assets/Icons/HeartFull.png")
+		lives_sprite.texture = HEART_FULL
 	elif Global.lives == 2:
-		lives_sprite.texture = preload("res://Assets/Icons/HeartHalf.png")
+		lives_sprite.texture = HEART_HALF
 	else:
-		lives_sprite.texture = preload("res://Assets/Icons/HeartEmpty.png")
+		lives_sprite.texture = HEART_EMPTY
 
 # Level UI
 func _update_level():

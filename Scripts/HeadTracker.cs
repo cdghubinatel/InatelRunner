@@ -103,11 +103,18 @@ public partial class HeadTracker : Node
 		// Cria a imagem do Godot
 		Godot.Image godotImage = Godot.Image.CreateFromData(frame.Width, frame.Height, false, Godot.Image.Format.Rgb8, imgData);
 		
-		// Atualiza o preview visual na UI
+		// Atualiza o preview visual na UI (reutiliza textura para evitar acúmulo de GC no build)
 		if (CameraPreview != null && godotImage != null)
 		{
-			var newTexture = Godot.ImageTexture.CreateFromImage(godotImage);
-			CameraPreview.Texture = newTexture;
+			if (imageTexture == null || imageTexture.GetWidth() != godotImage.GetWidth() || imageTexture.GetHeight() != godotImage.GetHeight())
+			{
+				imageTexture = Godot.ImageTexture.CreateFromImage(godotImage);
+				CameraPreview.Texture = imageTexture;
+			}
+			else
+			{
+				imageTexture.SetImage(godotImage);
+			}
 		}
 
 		timeSinceLastInference += delta;

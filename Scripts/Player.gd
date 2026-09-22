@@ -43,7 +43,15 @@ var sensitivity = 3.0
 enum game_state {CONTINUE, RETRY}
 var current_state
 
+# --- EFEITOS DE DANO ---
+var is_taking_damage: bool = false
+var overlay_tween: Tween
+var shake_tween: Tween
+var default_cam_h: float = 0.0
+var default_cam_v: float = 0.0
+
 func _ready():
+	setup_damage_overlay()
 	start_screen.visible = true
 	
 	if main.has_node("HeadTracker"):
@@ -51,6 +59,17 @@ func _ready():
 		print("HeadTracker encontrado e conectado!")
 	else:
 		print("HeadTracker não encontrado. A usar apenas teclado.")
+
+func setup_damage_overlay():
+	var damage_overlay = $HUD.get_node_or_null("DamageOverlay")
+	if not damage_overlay:
+		damage_overlay = ColorRect.new()
+		damage_overlay.name = "DamageOverlay"
+		damage_overlay.color = Color(1.0, 0.0, 0.0, 0.0)
+		damage_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		damage_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		damage_overlay.visible = false
+		$HUD.add_child(damage_overlay)
 
 func _physics_process(delta):
 	handle_movement(delta)
@@ -123,6 +142,7 @@ func check_for_platform_collisions():
 		var collider = collision.get_collider()
 		if collider and collider.is_in_group("Air_Platform"):
 			if collision.get_normal().dot(Vector3(0, 0, -1)) > 0.5: 
+				print("[COLISÃO MORTE] Bateu de frente na plataforma aérea: ", collider.name)
 				Global.lives = 0
 				Global.lives_updated.emit()
 				game_over()
@@ -156,37 +176,49 @@ func apply_effect(effect_name):
 				Global.level_time_updated.emit()
 
 func play_damage_feedback():
+	# Impede novo feedback de dano se a animação anterior ainda estiver em execução
+	if is_taking_damage:
+		return
+	is_taking_damage = true
+
+	# 1. Flash Vermelho + Shake 2D no HUD (Super Leve - Zero recálculo de frustum/matrizes 3D)
+	var damage_overlay = $HUD.get_node_or_null("DamageOverlay")
+	if not damage_overlay:
+		setup_damage_overlay()
+		damage_overlay = $HUD.get_node_or_null("DamageOverlay")
+	
+	if damage_overlay:
+		damage_overlay.visible = true
+		damage_overlay.color.a = 0.45
+		
+		if overlay_tween and overlay_tween.is_running():
+			overlay_tween.kill()
+		overlay_tween = create_tween()
+		overlay_tween.set_parallel(true)
+		
+		# Fade out do filtro vermelho
+		overlay_tween.tween_property(damage_overlay, "color:a", 0.0, 0.25)
+		
+		# Tremor leve na interface 2D no lugar de mover a câmera 3D (0 impacto na CPU/renderizador 3D)
+		for i in range(4):
+			overlay_tween.tween_property($HUD, "offset", Vector2(randf_range(-10, 10), randf_range(-10, 10)), 0.03)
+			overlay_tween.chain()
+		overlay_tween.tween_property($HUD, "offset", Vector2.ZERO, 0.03)
+		
+		overlay_tween.tween_callback(func(): damage_overlay.visible = false)
+
+	# 2. Pisca o modelo 3D do jogador via Tween determinístico (Zero corotinas/create_timer)
 	var mesh_node = get_node_or_null("Root Scene")
 	if mesh_node:
+		var blink_tween = create_tween()
 		for i in range(3):
-			mesh_node.visible = false
-			await get_tree().create_timer(0.1).timeout
-			mesh_node.visible = true
-			await get_tree().create_timer(0.1).timeout
-		
-	var cam = get_viewport().get_camera_3d()
-	if cam:
-		# Filtro Vermelho
-		var canvas = CanvasLayer.new()
-		var color_rect = ColorRect.new()
-		color_rect.color = Color(1.0, 0.0, 0.0, 0.4)
-		color_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		canvas.add_child(color_rect)
-		add_child(canvas)
-		
-		var original_h = cam.h_offset
-		var original_v = cam.v_offset
-		var tween = create_tween()
-		tween.set_parallel(true)
-		# Anima o fade do filtro e o shake juntos
-		tween.tween_property(color_rect, "color:a", 0.0, 0.4)
-		for i in range(4):
-			tween.tween_property(cam, "h_offset", randf_range(-0.3, 0.3), 0.05)
-			tween.tween_property(cam, "v_offset", randf_range(-0.3, 0.3), 0.05)
-			tween.chain()
-		tween.tween_property(cam, "h_offset", original_h, 0.05)
-		tween.tween_property(cam, "v_offset", original_v, 0.05)
-		tween.tween_callback(canvas.queue_free)
+			blink_tween.tween_callback(func(): if is_instance_valid(mesh_node): mesh_node.visible = false)
+			blink_tween.tween_interval(0.05)
+			blink_tween.tween_callback(func(): if is_instance_valid(mesh_node): mesh_node.visible = true)
+			blink_tween.tween_interval(0.05)
+		blink_tween.tween_callback(func(): is_taking_damage = false)
+	else:
+		is_taking_damage = false
 
 func game_over():
 	game_timer.stop()
@@ -258,6 +290,7 @@ func update_ranking_ui():
 		ranking_display.add_child(label)
 		
 func reset_game_state():
+	is_taking_damage = false
 	is_jumping = false
 	game_starts = false
 	Global.game_started = false

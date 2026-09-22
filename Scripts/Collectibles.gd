@@ -8,6 +8,7 @@ var collectibles
 func _on_body_entered(body):
 	if body.is_in_group("Player"):
 		var effect_name = Global.collectibles_resources[collectible_name]["effect"]
+		print("[COLISÃO COLETÁVEL] Item: ", collectible_name, " | Efeito: ", effect_name, " | Pos: ", global_position)
 		body.apply_effect(effect_name)
 		queue_free()
 

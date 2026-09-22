@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="InatelRunner_Fix"
+config/name="InatelRunner"
 run/main_scene="uid://dqqa1al6rptii"
 config/features=PackedStringArray("4.5", "C#")
 
